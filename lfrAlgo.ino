@@ -1,12 +1,23 @@
 #include <SoftwareSerial.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define SCREEN_I2C_ADDRESS 0x3C
+#define OLED_RESET_PIN -1
 
 
 
-#define MUX_SIG A0  
+#define MUX_SIG A7
 #define S0 A0
 #define S1 A2 
 #define S2 A6 
 #define led 6
+//oledpins 
+//bluetooth pins 
+//potentiometer
+
+#define pot A3
 #define push1 8
 #define push2 7
 #define IN1 4 //ma
@@ -16,8 +27,33 @@
 #define ENA 3   //ma
 #define ENB 11  //mb
 
-
+float Kp = 2.0, Ki = 0.1, Kd = 1.0;
+float integral = 0, previousError = 0;
+int threshold = 600;
 int speedBase = 200;
+
+char intersection[];
+char path[];
+bool mid=false;
+bool left=false;
+bool front=false;
+bool right=false;
+bool object=false;
+bool deadend=false;
+int array[8];
+
+
+
+// oled menu
+// motor test 
+// pid folow 
+// callibration 
+// threshold 
+// dry run 
+// actual menu 
+// ir values
+
+
 
 void setup() {
     Serial.begin(9600);
@@ -50,7 +86,28 @@ int readSensor(int channel) {
     return analogRead(MUX_SIG);
 }
 
+void lineSection(){
+    //add deadend too
+}
 
+void uTurn() {
+        
+    analogWrite(ENA, speedBase);
+    analogWrite(ENB, speedBase);
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(50);
+    while(true){
+        if(readSensor(5)>threshold ||readSensor(6)>threshold || readSensor(3) >threshold || readSensor(4) >threshold){
+            break;
+        }
+        delay(10);
+    }
+    stopMotors();
+    
+}
 void moveForward() {
     analogWrite(ENA, speedBase);
     analogWrite(ENB, speedBase);
@@ -67,6 +124,15 @@ void turnLeft() {
     digitalWrite(IN2, HIGH);
     digitalWrite(IN3, HIGH);
     digitalWrite(IN4, LOW);
+
+    delay(50);
+    while (true) {
+        if((readSensor(3) > threshold || readSensor(4) > threshold)){
+            break;
+        }
+        delay(10);
+    }
+    stopMotors();
 }
 
 void turnRight() {
@@ -76,6 +142,15 @@ void turnRight() {
     digitalWrite(IN2, LOW);
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
+
+    delay(50);
+    while(true){
+        if(readSensor(5)>threshold ||readSensor(6)>threshold){
+            break;
+        }
+        delay(10);
+    }
+    stopMotors();
 }
 
 void stopMotors() {
@@ -162,12 +237,52 @@ void checkBluetooth() {
 
 
 
+void dryRun(){
+    while(true){
+        int array[8];
+        for(int i=0; i<8; i++){
+            array[i]=readSensor(i);
+        }
+        bool front = (array[1]>threshold);
+        bool left = (array[2] > threshold);
+        bool mid = (array[3] > threshold || array[4] > threshold || array[5] > threshold 
+        || array[6] > threshold
+        & array[1]<threshold & array[2]<threshold & array[7]<threshold & array[0]<threshold); 
+        bool right = (array[7] > threshold);
+        bool object = (array[0] > threshold);
+
+
+        if (mid){
+            applyPID();
+        }
+        else if(left){
+            turnLeft();
+
+        }
+        else if (front){
+            turnRight();
+
+        }
+        else if (right){
+            turnRight();
+
+        }
+        else if(object){
+            uTurn();
+
+        }
+
+
+    }
+}
+
+
 void loop() {
-    int sensorValues[8];
+    int array[8];
     
     for (int i = 0; i < 8; i++) {
-        sensorValues[i] = readSensor(i);
-        Serial.print(sensorValues[i]);
+        array[i] = readSensor(i);
+        Serial.print(array[i]);
         Serial.print(" ");
     }
     Serial.println();
@@ -178,31 +293,169 @@ void loop() {
     //     normalLineFollowing();
     // }
 
-    int threshold = 600;
-
-    bool front = (sensorValues[1] > threshold); 
-    bool left = (sensorValues[2] > threshold); 
-    bool mid = (sensorValues[3] > threshold || sensorValues[4] > threshold || sensorValues[5] > threshold || sensorValues[6] > threshold); 
-    bool right = (sensorValues[7] > threshold);  
-    bool object = (sensorValues[0] > threshold);
-
-    float Kp = 2.0, Ki = 0.1, Kd = 1.0;
-    float integral = 0, previousError = 0;
-    int threshold = 600;
+    bool front = (array[1] > threshold); 
+    bool left = (array[2] > threshold); 
+    bool mid = (array[3] > threshold || array[4] > threshold || array[5] > threshold || array[6] > threshold); 
+    bool right = (array[7] > threshold);  
+    bool object = (array[0] > threshold);
     if (mid) {
         applyPID();   
        
     } else if (left) {
         turnLeft();
         integral = 0;
-    } else if (right) {
+    }
+    else if(front){
+        applyPID();
+    }
+    else if (right) {
         turnRight();
         integral = 0;  
-    } else {
+    } 
+    else {
         stopMotors();
     }
     delay(50);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -234,6 +487,7 @@ void loop() {
 //         }
 //     }
 // }
+
 
 // void processInput(String data) {
 //     if (data.startsWith("Kp=")) {
