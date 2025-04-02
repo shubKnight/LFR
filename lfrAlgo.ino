@@ -1,13 +1,16 @@
 #include <SoftwareSerial.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define SCREEN_I2C_ADDRESS 0x3C
 #define OLED_RESET_PIN -1
 
 
+#include <Wire.h>
+#include <U8g2lib.h>
 
+#define UP_BUTTON 8
+#define DOWN_BUTTON 
+#define SELECT_BUTTON 7 
 #define MUX_SIG A7
 #define S0 A0
 #define S1 A2 
@@ -18,8 +21,6 @@
 //potentiometer
 
 #define pot A3
-#define push1 8
-#define push2 7
 #define IN1 4 //ma
 #define IN2 11
 #define IN3 5 //mb
@@ -46,13 +47,51 @@ int array[8];
 
 // oled menu
 // motor test 
-// pid folow 
-// callibration 
+// pid folowcalibration 
 // threshold 
 // dry run 
 // actual menu 
 // ir values
+void lineSection(){
+    //add deadend too
+}
 
+
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+
+const char* menuItems[] = {
+    "PID Tuning",
+    "Callibration",
+    "Threshold",
+    "Dry Run",
+    "Actual Run"
+};
+int menuIndex = 0;
+int totalItems = sizeof(menuItems) / sizeof(menuItems[0]);
+
+
+void drawMenu() {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x13_tr);
+    
+    for (int i = 0; i < totalItems; i++) {
+        if (i == menuIndex) {
+            u8g2.drawFrame(5, 10 + (i * 15), 117, 13); // Highlight selected item
+        }
+        u8g2.drawStr(20, 20 + (i * 15), menuItems[i]);
+    }
+    
+    u8g2.sendBuffer();
+}
+
+void handleSelection(int index) {
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x13_tr);
+    u8g2.drawStr(20, 30, "Selected:");
+    u8g2.drawStr(20, 50, menuItems[index]);
+    u8g2.sendBuffer();
+    delay(1000);
+}
 
 
 void setup() {
@@ -70,6 +109,11 @@ void setup() {
     pinMode(S0, OUTPUT);
     pinMode(S1, OUTPUT);
     pinMode(S2, OUTPUT);
+    u8g2.begin();
+    
+    pinMode(UP_BUTTON, INPUT_PULLUP);
+    pinMode(DOWN_BUTTON, INPUT_PULLUP);
+    pinMode(SELECT_BUTTON, INPUT_PULLUP);
 }
 
 
@@ -84,10 +128,6 @@ int readSensor(int channel) {
     selectChannel(channel);
     delay(5);  
     return analogRead(MUX_SIG);
-}
-
-void lineSection(){
-    //add deadend too
 }
 
 void uTurn() {
@@ -316,53 +356,32 @@ void loop() {
         stopMotors();
     }
     delay(50);
+//menucode
+    if (digitalRead(UP_BUTTON) == LOW) {
+        menuIndex = (menuIndex - 1 + totalItems) % totalItems;
+        delay(200);
+    }
+    
+    if (digitalRead(DOWN_BUTTON) == LOW) {
+        menuIndex = (menuIndex + 1) % totalItems;
+        delay(200);
+    }
+
+    if (digitalRead(SELECT_BUTTON) == LOW) {
+        handleSelection(menuIndex);
+        delay(300);
+    }
+    
+    drawMenu();
+
+
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+void calibration(){
+    rotate();
+    delay(10);
+    while()
+}
 
 
 
